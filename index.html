@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        void function (){
+            const dictionary = {
+                en: {
+                    title: 'WebRTC Bridge',
+                    establishConnection: 'Establishing P2P connection...',
+                    respUrlMissing: 'Error: missing required "resp-url" parameter',
+                    couldntParseData: 'Error: couldn\'t parse "resp-data" parameter',
+                    failedToSendReponse: 'Error: failed to send response',
+                    pollUrlMissing: 'Error: missing required "poll-url" parameter',
+                    failedToSubscribe: 'Warning: failed to subscribe to polling url',
+                    missingProcessor: 'Error: missing required "type" parameter',
+                    invalidProcessor: 'Error: "type" parameter is invalid. Should be one of %processors%',
+                },
+                uk: {
+                    title: 'Міст WebRTC',
+                    establishConnection: "Встановлення P2P-з'єднання...",
+                    respUrlMissing: 'Помилка: параметр "resp-url" є обов\'язковим',
+                    couldntParseData: 'Помилка: неможливо розпарсити параметр "resp-data"',
+                    failedToSendReponse: 'Помилка: не вдалося відправити відповідь',
+                    pollUrlMissing: 'Помилка: параметр "poll-url" є обов\'язковим',
+                    failedToSubscribe: 'Увага: не вдалося підписатися на посилання для оновлень',
+                    missingProcessor: 'Помилка: параметр "type" є обов\'язковим',
+                    invalidProcessor: 'Помилка: параметр "type" неправильний. Має бути одним з %processors%',
+                },
+            };
+            const fallbacks = [
+                { priority: 1, target: 'uk', sources: ['ru', 'be'] },
+            ].sort((a, b) => b.priority - a.priority);
+            const supportedLangs = Object.keys(dictionary);
+            const targetDict = (() => {
+                for (const loc of navigator.languages) {
+                    const [lang] = loc.split('-');
+                    if (supportedLangs.includes(lang)) {
+                        return lang;
+                    }
+                    for (const { priority, target, sources } of fallbacks) {
+                        if (sources.includes(lang)) {
+                            return lang;
+                        }
+                    }
+                }
+                return 'en';
+            })();
+            window.dictionary = dictionary[targetDict];
+        }();
+    </script>
+    <script>
+        document.title = dictionary.title;
+    </script>
+</head>
+<body style="margin: 0; padding: 0; border: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column;">
+    <div style="flex-grow: 1; width: 100vw; display: flex; justify-content: center; align-items: center;">
+        <!-- LOADING ANIMATION FROM https://loading.io/ -->
+        <div style="--size: 15vmax; --svg-url: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiBzdHlsZT0ibWFyZ2luOiBhdXRvOyBiYWNrZ3JvdW5kOiByZ2IoMCwgMCwgMCk7IGRpc3BsYXk6IGJsb2NrOyBzaGFwZS1yZW5kZXJpbmc6IGF1dG87IiB3aWR0aD0iMjAwcHgiIGhlaWdodD0iMjAwcHgiIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCI+CjxwYXRoIGQ9Ik0xMCA1MEE0MCA0MCAwIDAgMCA5MCA1MEE0MCA0MiAwIDAgMSAxMCA1MCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSJub25lIj4KICA8YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIHR5cGU9InJvdGF0ZSIgZHVyPSIxcyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiIGtleVRpbWVzPSIwOzEiIHZhbHVlcz0iMCA1MCA1MTszNjAgNTAgNTEiPjwvYW5pbWF0ZVRyYW5zZm9ybT4KPC9wYXRoPgo8IS0tIFtsZGlvXSBnZW5lcmF0ZWQgYnkgaHR0cHM6Ly9sb2FkaW5nLmlvLyAtLT48L3N2Zz4='); height: var(--size); width: var(--size); max-width: 80vw; max-height: 80vh; background-color: currentColor; -moz-mask-image: var(--svg-url); -webkit-mask-image: var(--svg-url);mask-image: var(--svg-url); -moz-mask-size: contain; -webkit-mask-size: contain; mask-size: contain; -moz-mask-position: center; -webkit-mask-position: center; mask-position: center; -moz-mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -moz-mask-mode: luminance; -webkit-mask-mode: luminance; mask-mode: luminance;"></div>
+    </div>
+    <div style="height: 1.5em; text-align: center;"></div>
+    <script>
+        void async function () {
+            const availableProcessors = ['simple'];
+
+            const html = document.head.parentElement;
+            let connected = false;
+
+            function getBody() {
+                return html.lastElementChild;
+            }
+
+            function clearLocation() {
+                if (connected) return;
+                location.hash = '';
+            }
+
+            function setStatus(text) {
+                if (connected) return;
+                getBody().firstElementChild.nextElementSibling.innerText = text;
+            }
+
+            const getConfig = ((configString) => {
+                const config = {};
+                for (const unparsedVal of configString.split('&')) {
+                    const [name, ...value] = unparsedVal.split('=');
+                    config[decodeURIComponent(name)] = decodeURIComponent(value.join('='));
+                }
+                return (name) => config[name];
+            })(location.hash.slice(1));
+
+            function setColor(color) {
+                if (connected) return;
+                const body = getBody();
+                const loader = body.firstElementChild.firstElementChild;
+                const status = body.firstElementChild.nextElementSibling;
+                loader.style.backgroundColor = color;
+                status.style.color = color;
+            }
+
+            function setBackground(color) {
+                if (connected) return;
+                getBody().style.backgroundColor = color;
+            }
+
+            function setFailed(reason) {
+                if (connected) return;
+                const body = getBody();
+                const loader = body.firstElementChild.firstElementChild;
+                const status = body.firstElementChild.nextElementSibling;
+                setColor('red');
+                setBackground('black');
+                loader.innerText = '❌';
+                loader.setAttribute('style', `font-size: ${loader.style.getPropertyValue('--size')}`);
+                setStatus(reason);
+            }
+
+            function createRespondMethod() {
+                const respUrl = getConfig('resp-url');
+                if (!respUrl) throw new Error(dictionary.respUrlMissing);
+                let respData = getConfig('resp-data');
+                if (respData) {
+                    try {
+                        respData = JSON.parse(respData);
+                    } catch(e) {
+                        throw new Error(dictionary.couldntParseData);
+                    }
+                } else {
+                    respData = {};
+                };
+                const respField = getConfig('resp-field');
+                const respEncode = getConfig('resp-json');
+                return async (data) => {
+                    const res = await fetch(respUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(respField ? {
+                            ...respData,
+                            [respField]: respEncode === '1' ? JSON.stringify(data) : data,
+                        } : {
+                            ...respData,
+                            ...data,
+                        }),
+                    });
+                    if (!res.ok) {
+                        throw new Error(dictionary.failedToSendReponse);
+                    }
+                };
+            }
+
+            function sleep(ms) {
+                return new Promise((r) => setTimeout(r, ms));
+            }
+
+            async function startPolling(callback, interval, url, field, encoded) {
+                let lastId;
+                while (true) {
+                    const targetUrl = new URL(url);
+                    if (lastId) targetUrl.searchParams.set('since', lastId);
+                    const res = await fetch(targetUrl);
+                    if (!res.ok) {
+                        setStatus(dictionary.failedToSubscribe);
+                    } else {
+                        let body
+                        try {
+                            body = await res.text();
+                        } catch(e) {
+                            setStatus(dictionary.failedToSubscribe);
+                        }
+                        for (const line of body.split('\n')) {
+                            let data;
+                            try {
+                                data = JSON.parse(line);
+                            } catch(e) {}
+                            if (!data) continue;
+                            lastId = data.id;
+                            if (field) data = data[field];
+                            try {
+                                if (encoded === '1') data = JSON.parse(data);
+                            } catch(e) {}
+                            await callback(data);
+                        }
+                    }
+                    await sleep(interval);
+                }
+            }
+
+            function subscribe(callback, interval = 1000) {
+                const pollUrl = getConfig('poll-url');
+                if (!pollUrl) throw new Error(dictionary.pollUrlMissing);
+                startPolling(callback, interval, pollUrl, getConfig('poll-field'), getConfig('poll-json'));
+            }
+
+            clearLocation();
+
+            setStatus(dictionary.establishConnection);
+
+            if (getConfig('color')) {
+                setColor(getConfig('color'));
+            }
+
+            if (getConfig('bg')) {
+                setBackground(getConfig('bg'));
+            }
+
+            const processorId = getConfig('type');
+            if (!processorId) {
+                setFailed(dictionary.missingProcessor);
+                return;
+            }
+            if (!availableProcessors.includes(processorId)) {
+                setFailed(dictionary.invalidProcessor.replace('%processors%', JSON.stringify(availableProcessors)));
+                return;
+            }
+            const processorPromise = import(`./processors/${type}.js`);
+
+            processorPromise.catch((e) => {
+                setFailed(e?.message || e);
+            });
+
+            const connection = new RTCPeerConnection();
+
+            const respond = createRespondMethod();
+
+            subscribe(async ({ icecandidate, offer }) => {
+                if (offer) {
+                    await connection.setRemoteDescription(offer);
+                    const answer = await connection.createAnswer();
+                    await connection.setLocalDescription(answer);
+                    await respond({ answer });
+                }
+                if (icecandidate) {
+                    await connection.addIceCandidate(icecandidate);
+                }
+            });
+
+            connection.addEventListener('icecandidate', async (ev) => {
+                try {
+                    await respond({ icecandidate: ev.candidate });
+                } catch(e) {
+                    setFailed(e?.message || e);
+                }
+            });
+
+            connection.onconnectionstatechange = async () => {
+                if (connection.connectionState === 'connected') {
+                    connected = true;
+                    connection.onconnectionstatechange = null;
+                    const processor = await processorPromise;
+                    html.innerHTML = '<head></head><body></body>';
+                    processor.main(connection);
+                }
+            };
+        }();
+    </script>
+</body>
+</html>
